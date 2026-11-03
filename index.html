@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="description" content="Nonogram — classic Japanese picross logic puzzles. Fill cells by number clues to reveal hidden pictures. Three sizes, guaranteed unique solutions. Free HTML5 game.">
+<meta name="theme-color" content="#e9dfc8">
+<title>Nonogram — Picture Logic Puzzles</title>
+<script>
+// 平台 SDK 按域名条件加载（独立运行时完全不加载，游戏行为不变）
+(function () {
+  var host = location.hostname || "";
+  try {
+    if (host.indexOf("crazygames") !== -1) {
+      var s1 = document.createElement("script");
+      s1.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+      s1.onload = function () {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+          window.CrazyGames.SDK.init().then(function () {
+            try { window.CrazyGames.SDK.game.loadingStart(); } catch (e) {}
+            window.addEventListener("load", function () { try { window.CrazyGames.SDK.game.loadingStop(); } catch (e) {} });
+          }).catch(function () {});
+        }
+      };
+      document.head.appendChild(s1);
+      window.__portal = "crazygames";
+    } else if (host.indexOf("gamedistribution") !== -1 || host.indexOf("html5.gamedistribution.com") !== -1 || host.indexOf("gd.games") !== -1) {
+      var s2 = document.createElement("script");
+      s2.src = "https://sdk.gamedistribution.com/v2/main.min.js";
+      document.head.appendChild(s2);
+      window.__portal = "gamedistribution";
+    }
+  } catch (e) {}
+})();
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; overflow:hidden; }
+  body { background:#e9dfc8; color:#3a332a; font-family:Georgia,"Times New Roman",serif;
+         -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; overscroll-behavior:none; }
+  #wrap { height:100%; display:flex; flex-direction:column; align-items:center; }
+  #hud { width:100%; max-width:640px; padding:8px 12px 0; }
+  .hudRow { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  #title { font-size:17px; font-weight:700; letter-spacing:3px; color:#4a3f2e; }
+  #sizeLabel { font-size:10px; color:#93866b; letter-spacing:2px; margin-top:1px; }
+  .stats { display:flex; gap:14px; align-items:center; }
+  .stat { text-align:center; }
+  .stat .label { font-size:9px; color:#a09277; letter-spacing:2px; }
+  .stat .val { font-size:17px; font-weight:700; color:#3a332a; font-variant-numeric:tabular-nums; }
+  .tools { display:flex; justify-content:center; align-items:center; gap:6px; padding:7px 0 5px; flex-wrap:wrap; }
+  button { font-family:inherit; touch-action:manipulation; }
+  .chip { background:#fbf6ea; border:1px solid #b9ab8d; border-radius:9px; padding:4px 10px;
+          font-size:12px; font-weight:700; color:#4a3f2e; cursor:pointer; letter-spacing:.5px;
+          box-shadow:0 1px 0 rgba(90,75,50,.15); white-space:nowrap; }
+  .chip:active { transform:translateY(1px); box-shadow:none; }
+  .chip.on { background:#4a3f2e; color:#f7f1e3; border-color:#4a3f2e; }
+  .chip.dis { opacity:.4; }
+  #stage { position:relative; margin:2px 0 4px; }
+  canvas { display:block; border-radius:10px; touch-action:none; box-shadow:0 2px 14px rgba(90,70,40,.18); }
+  .overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+             background:rgba(58,48,32,.42); backdrop-filter:blur(3px); border-radius:10px; z-index:5; overflow:auto; }
+  .panel { background:#fbf6ea; border:1px solid #b9ab8d; border-radius:14px; padding:20px 26px;
+           text-align:center; max-width:92%; max-height:96%; overflow:auto;
+           box-shadow:0 6px 24px rgba(60,45,20,.25); }
+  .panel h1 { font-size:26px; letter-spacing:5px; color:#4a3f2e; margin-bottom:4px; }
+  .tag { font-size:12px; color:#8a7c62; margin-bottom:10px; }
+  .howto { font-size:11.5px; color:#6b5f4a; line-height:1.7; margin-bottom:14px; }
+  .sizes { display:flex; flex-direction:column; gap:8px; }
+  .sizeBtn { display:flex; align-items:baseline; justify-content:space-between; gap:14px; width:236px;
+             margin:0 auto; background:#f3ecd9; border:1px solid #b9ab8d; border-radius:10px;
+             padding:9px 16px; font-size:16px; font-weight:700; color:#4a3f2e; cursor:pointer; }
+  .sizeBtn span { font-size:10px; letter-spacing:2px; color:#a09277; }
+  .sizeBtn em { font-style:normal; font-size:11px; color:#8a7c62; font-variant-numeric:tabular-nums; }
+  .sizeBtn:active { transform:scale(.98); }
+  #picName { font-size:34px; font-weight:700; letter-spacing:7px; color:#b2492f; margin:2px 0 8px; }
+  #winTime { font-size:16px; font-weight:700; color:#3a332a; margin-bottom:2px; font-variant-numeric:tabular-nums; }
+  #winBest { font-size:12px; color:#8a7c62; margin-bottom:14px; }
+  #winBest.nb { color:#b2492f; font-weight:700; }
+  .mainBtn { background:#4a3f2e; color:#f7f1e3; border:none; border-radius:10px; padding:10px 24px;
+             font-size:14px; font-weight:700; letter-spacing:1px; cursor:pointer; margin:0 4px; }
+  .mainBtn:active { transform:scale(.97); }
+  .ghostBtn { background:transparent; color:#6b5f4a; border:1px solid #b9ab8d; border-radius:10px;
+              padding:10px 16px; font-size:13px; cursor:pointer; margin:0 4px; }
+  #footer { color:#a3947a; font-size:11px; padding:6px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div class="hudRow">
+      <div>
+        <div id="title">NONOGRAM</div>
+        <div id="sizeLabel">PICTURE LOGIC</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="label">TIME</div><div class="val" id="time">0:00</div></div>
+        <div class="stat"><div class="label">BEST</div><div class="val" id="best">--:--</div></div>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="chip" id="btnMark" title="Toggle mark mode (M)">Mark: Off</button>
+      <button class="chip" id="btnUndo" title="Undo (U)">Undo</button>
+      <button class="chip" id="btnCheck" title="Highlight wrong cells (H), 2 uses per puzzle">Check &#215;2</button>
+      <button class="chip" id="btnSound" title="Toggle sound">Sound On</button>
+      <button class="chip" id="btnMenu" title="Back to menu">Menu</button>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div class="overlay" id="menuOv">
+      <div class="panel">
+        <h1>NONOGRAM</h1>
+        <p class="tag">Reveal the hidden picture with number clues</p>
+        <div class="howto">
+          Numbers count the runs of filled cells in each row and column.<br>
+          Tap or left-click to fill &#183; Mark mode or right-click to draw &#215;<br>
+          Keys: U undo &#183; M mark mode &#183; H check errors (2 per puzzle)
+        </div>
+        <div class="sizes">
+          <button class="sizeBtn" data-n="5"><span>5 &#215; 5</span><span>EASY</span><em id="best5">--:--</em></button>
+          <button class="sizeBtn" data-n="10"><span>10 &#215; 10</span><span>MEDIUM</span><em id="best10">--:--</em></button>
+          <button class="sizeBtn" data-n="15"><span>15 &#215; 15</span><span>HARD</span><em id="best15">--:--</em></button>
+        </div>
+      </div>
+    </div>
+    <div class="overlay" id="winOv">
+      <div class="panel">
+        <p class="tag">PICTURE REVEALED</p>
+        <div id="picName">CAT</div>
+        <div id="winTime">Time 0:00</div>
+        <div id="winBest">Best --:--</div>
+        <div>
+          <button class="mainBtn" id="btnNext">New Puzzle</button>
+          <button class="ghostBtn" id="btnChange">Change Size</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="footer">Nonogram &#8212; a free picture logic puzzle</div>
+</div>
+<script>
+"use strict";
+/* ==================== 纯逻辑区（可在 Node 中单测） ==================== */
+
+// 计算一条线（0/1 数组）的游程长度
+function computeRuns(cells) {
+  var runs = [], c = 0, i;
+  for (i = 0; i < cells.length; i++) {
+    if (cells[i] === 1) c++;
+    else if (c > 0) { runs.push(c); c = 0; }
+  }
+  if (c > 0) runs.push(c);
+  return runs;
+}
+
+// 由 0/1 图案计算行列提示
+function hintsFromGrid(g) {
+  var R = g.length, C = g[0].length, row = [], col = [], r, c, line;
+  for (r = 0; r < R; r++) row.push(computeRuns(g[r]));
+  for (c = 0; c < C; c++) {
+    line = [];
+    for (r = 0; r < R; r++) line.push(g[r][c]);
+    col.push(computeRuns(line));
+  }
+  return { row: row, col: col };
+}
+
+function countFilled(g) {
+  var n = 0, r, c;
+  for (r = 0; r < g.length; r++) for (c = 0; c < g[0].length; c++) if (g[r][c] === 1) n++;
+  return n;
+}
+
+function copyGrid(g) {
+  var out = [], r;
+  for (r = 0; r < g.length; r++) out.push(g[r].slice());
+  return out;
+}
+
+// 线求解 DP 复用缓冲（避免每次调用分配，降低 GC 压力）
+var _lbCap = 0, _lbB = null, _lbF = null, _lbCE = null, _lbCF = null;
+function lbEnsure(n, k) {
+  if (n <= _lbCap && k <= _lbCap) return;
+  var c = (n > k ? n : k) + 2, i;
+  _lbB = []; _lbF = [];
+  for (i = 0; i <= c; i++) { _lbB.push(new Array(c + 1)); _lbF.push(new Array(c + 1)); }
+  _lbCE = new Array(c); _lbCF = new Array(c);
+  _lbCap = c;
+}
+
+/* 单线约束推断：hint 为块宽数组（可为空），line 元素 -1 未知 / 0 空 / 1 涂。
+   前向可达 F + 后向可行 B 双向 DP，求出每个未知格在全部合法排列中的必然取值并就地固化。
+   返回 0=矛盾（无合法排列），1=可行且无新固化，2=可行且有新固化。 */
+function lineDetermine(hint, line) {
+  var n = line.length, k = hint.length, i, j, t;
+  // 快速路径：无未知格时直接校验游程
+  var unknown = 0;
+  for (i = 0; i < n; i++) if (line[i] === -1) unknown++;
+  if (unknown === 0) {
+    var rr2 = computeRuns(line), rr2n = rr2.length;
+    if (rr2n !== k) return 0;
+    for (i = 0; i < k; i++) if (rr2[i] !== hint[i]) return 0;
+    return 1;
+  }
+  lbEnsure(n, k);
+  var B = _lbB, F = _lbF, canEmpty = _lbCE, canFill = _lbCF;
+  // B[i][j]：状态 (i, j)（前 i 格已定、已放 j 块、i 为块边界）出发能否完成整线
+  for (i = 0; i <= n; i++) for (j = 0; j <= k; j++) { B[i][j] = false; F[i][j] = false; }
+  B[n][k] = true;
+  for (i = n - 1; i >= 0; i--) {
+    for (j = k; j >= 0; j--) {
+      var ok = false;
+      if (line[i] !== 1 && B[i + 1][j]) ok = true; // i 留空
+      if (!ok && j < k) {                          // 在 i 放第 j 块
+        var len = hint[j];
+        if (i + len <= n) {
+          var fit = true;
+          for (t = i; t < i + len; t++) if (line[t] === 0) { fit = false; break; }
+          if (fit) {
+            if (i + len === n) ok = (j + 1 === k);
+            else if (line[i + len] !== 1) ok = B[i + len + 1][j + 1];
+          }
+        }
+      }
+      B[i][j] = ok;
+    }
+  }
+  if (!B[0][0]) return 0;
+  // 前向传播 + 收集每个未知格的可取值
+  for (i = 0; i < n; i++) { canEmpty[i] = false; canFill[i] = false; }
+  F[0][0] = true;
+  for (i = 0; i < n; i++) {
+    for (j = 0; j <= k; j++) {
+      if (!F[i][j]) continue;
+      if (line[i] !== 1) {
+        if (B[i + 1][j]) canEmpty[i] = true;
+        F[i + 1][j] = true;
+      }
+      if (j < k) {
+        var len2 = hint[j], ok2 = false;
+        if (i + len2 <= n) {
+          var fit2 = true;
+          for (t = i; t < i + len2; t++) if (line[t] === 0) { fit2 = false; break; }
+          if (fit2) {
+            if (i + len2 === n) {
+              if (j + 1 === k) {
+                ok2 = true;
+                for (t = i; t < i + len2; t++) canFill[t] = true;
+              }
+            } else if (line[i + len2] !== 1) {
+              F[i + len2 + 1][j + 1] = true;
+              if (B[i + len2 + 1][j + 1]) {
+                ok2 = true;
+                for (t = i; t < i + len2; t++) canFill[t] = true;
+                canEmpty[i + len2] = true; // 块后分隔格必可为空
+              }
+            }
+          }
+        }
+        if (ok2 && i + len2 === n) F[n][j + 1] = true;
+      }
+    }
+  }
+  // 固化必然取值
+  var changed = 1;
+  for (i = 0; i < n; i++) {
+    if (line[i] !== -1) continue;
+    var ce = canEmpty[i], cf = canFill[i];
+    if (ce && !cf) { line[i] = 0; changed = 2; }
+    else if (!ce && cf) { line[i] = 1; changed = 2; }
+    else if (!ce && !cf) return 0;
+  }
+  return changed;
+}
+
+/* 网格级行/列约束传播（脏线队列，只重算受影响的线）。返回 false = 矛盾。
+   dirtyR/dirtyC 可选：标记需要重算的行/列；缺省全脏。 */
+function propagate(rowHints, colHints, grid, dirtyR, dirtyC) {
+  var R = rowHints.length, C = colHints.length, r, c, i, res;
+  if (!dirtyR) { dirtyR = []; for (r = 0; r < R; r++) dirtyR[r] = true; }
+  if (!dirtyC) { dirtyC = []; for (c = 0; c < C; c++) dirtyC[c] = true; }
+  while (true) {
+    var work = false;
+    for (r = 0; r < R; r++) {
+      if (!dirtyR[r]) continue;
+      dirtyR[r] = false;
+      var before = grid[r].slice();
+      res = lineDetermine(rowHints[r], grid[r]);
+      if (res === 0) return false;
+      if (res === 2) {
+        work = true;
+        for (i = 0; i < C; i++) if (grid[r][i] !== before[i]) dirtyC[i] = true;
+      }
+    }
+    for (c = 0; c < C; c++) {
+      if (!dirtyC[c]) continue;
+      dirtyC[c] = false;
+      var col = new Array(R);
+      for (i = 0; i < R; i++) col[i] = grid[i][c];
+      res = lineDetermine(colHints[c], col);
+      if (res === 0) return false;
+      if (res === 2) {
+        work = true;
+        for (i = 0; i < R; i++) if (grid[i][c] !== col[i]) { grid[i][c] = col[i]; dirtyR[i] = true; }
+      }
+    }
+    if (!work) return true;
+  }
+}
+
+/* 逐行枚举：列出一行在当前格状态（-1/0/1）下的全部合法 0/1 排列 */
+function rowValidPlacements(hint, row, out) {
+  var n = row.length, k = hint.length, z;
+  out.length = 0;
+  if (k === 0) {
+    for (z = 0; z < n; z++) if (row[z] === 1) return out;
+    var e0 = new Array(n);
+    for (z = 0; z < n; z++) e0[z] = 0;
+    out.push(e0);
+    return out;
+  }
+  var cur = new Array(n);
+  function rec(pos, j) {
+    if (pos >= n) { if (j === k) out.push(cur.slice()); return; }
+    if (j === k) {
+      for (var a = pos; a < n; a++) if (row[a] === 1) return;
+      for (var b = pos; b < n; b++) cur[b] = 0;
+      out.push(cur.slice());
+      return;
+    }
+    var len = hint[j], tail = -1; // 从 s 起需 len + 后续各块及分隔
+    for (var t2 = j; t2 < k; t2++) tail += hint[t2] + 1;
+    for (var s = pos; s + tail <= n; s++) {
+      var bad = false, i1, i2, i3, i4;
+      for (i1 = pos; i1 < s; i1++) if (row[i1] === 1) { bad = true; break; }
+      if (bad) continue;
+      for (i2 = s; i2 < s + len; i2++) if (row[i2] === 0) { bad = true; break; }
+      if (bad) continue;
+      var sep = s + len;
+      if (sep < n && row[sep] === 1) continue;
+      for (i3 = pos; i3 < s; i3++) cur[i3] = 0;
+      for (i4 = s; i4 < sep; i4++) cur[i4] = 1;
+      if (sep < n) { cur[sep] = 0; rec(sep + 1, j + 1); }
+      else rec(n + 1, j + 1);
+    }
+  }
+  rec(0, 0);
+  return out;
+}
+
+/* 行约束传播 + 分支搜索：选未知格最少的行，枚举其合法排列（列约束由传播剪枝） */
+function searchSol(rowHints, colHints, grid, limit, st) {
+  var R = grid.length, C = grid[0].length, r, c;
+  var br = -1, bUnk = 2147483647, bSum = -1;
+  for (r = 0; r < R; r++) {
+    var unk = 0;
+    for (c = 0; c < C; c++) if (grid[r][c] === -1) unk++;
+    if (unk > 0 && (unk < bUnk || (unk === bUnk && rowHints[r].length > bSum))) {
+      bUnk = unk; bSum = rowHints[r].length; br = r;
+    }
+  }
+  if (br < 0) { st.cnt++; return; } // 全部确定 → 完整解
+  var placements = [];
+  rowValidPlacements(rowHints[br], grid[br], placements);
+  for (var pi = 0; pi < placements.length; pi++) {
+    if (st.cnt >= limit) return;
+    st.nodes++;
+    if ((st.nodes & 15) === 0 && st.deadline && Date.now() > st.deadline) { st.exhausted = true; return; }
+    var g2 = copyGrid(grid), p = placements[pi];
+    for (c = 0; c < C; c++) g2[br][c] = p[c];
+    var dr = [], dc = []; // 脏标记会被 propagate 消费，每次分支需重置
+    for (r = 0; r < R; r++) dr[r] = false;
+    dr[br] = true;
+    for (c = 0; c < C; c++) dc[c] = true;
+    if (propagate(rowHints, colHints, g2, dr, dc)) searchSol(rowHints, colHints, g2, limit, st);
+  }
+}
+
+/* 精确解计数（上限 limit，计数到达即停）。
+   budgetMs: 可选时间预算（毫秒），超时返回 -1（未验证）。
+   生成器只接受返回 1 的谜题，保证唯一解承诺真实可靠。 */
+function countSolutions(rowHints, colHints, limit, budgetMs) {
+  var R = rowHints.length, C = colHints.length, r, c;
+  var grid = [];
+  for (r = 0; r < R; r++) { var row = new Array(C); for (c = 0; c < C; c++) row[c] = -1; grid.push(row); }
+  if (!propagate(rowHints, colHints, grid)) return 0;
+  var st = { cnt: 0, nodes: 0, deadline: budgetMs ? Date.now() + budgetMs : 0, exhausted: false };
+  searchSol(rowHints, colHints, grid, limit, st);
+  return st.exhausted ? -1 : st.cnt;
+}
+
+/* 随机图案生成：形状印章 + 可选镜像对称 + 密度微调（目标约 30%） */
+function genPattern(R, C, density) {
+  var g = [], r, c, i;
+  for (r = 0; r < R; r++) { var row = new Array(C); for (c = 0; c < C; c++) row[c] = 0; g.push(row); }
+  var target = Math.max(3, Math.round(R * C * density));
+  var shapes = [
+    function () { var l = 2 + (Math.random() * 4 | 0), s = []; for (i = 0; i < l; i++) s.push([0, i]); return s; },
+    function () { var l = 2 + (Math.random() * 4 | 0), s = []; for (i = 0; i < l; i++) s.push([i, 0]); return s; },
+    function () { var w = 2 + (Math.random() * 2 | 0), h = 2 + (Math.random() * 2 | 0), s = [];
+                  for (i = 0; i < h; i++) for (var j = 0; j < w; j++) s.push([i, j]); return s; },
+    function () { return [[0, 0], [1, 0], [2, 0], [2, 1]]; },
+    function () { return [[0, 0], [0, 1], [1, 1], [1, 2]]; },
+    function () { return [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]; },
+    function () { return [[0, 0]]; }
+  ];
+  var weights = [3, 3, 3, 2, 2, 1, 3], wSum = 17;
+  var guard = 0;
+  while (countFilled(g) < target * 0.8 && guard++ < 500) {
+    var pick = Math.random() * wSum, si = 0, acc = 0;
+    for (i = 0; i < weights.length; i++) { acc += weights[i]; if (pick < acc) { si = i; break; } }
+    var cells = shapes[si](), ar = Math.random() * R | 0, ac = Math.random() * C | 0;
+    for (i = 0; i < cells.length; i++) {
+      var r2 = ar + cells[i][0], c2 = ac + cells[i][1];
+      if (r2 >= 0 && r2 < R && c2 >= 0 && c2 < C) g[r2][c2] = 1;
+    }
+  }
+  // 镜像对称（OR），让图案更耐看
+  if (Math.random() < 0.6) {
+    for (r = 0; r < R; r++) for (c = 0; c < C >> 1; c++) {
+      var v = g[r][c] | g[r][C - 1 - c]; g[r][c] = v; g[r][C - 1 - c] = v;
+    }
+  }
+  if (Math.random() < 0.35) {
+    for (r = 0; r < R >> 1; r++) for (c = 0; c < C; c++) {
+      var v2 = g[r][c] | g[R - 1 - r][c]; g[r][c] = v2; g[R - 1 - r][c] = v2;
+    }
+  }
+  // 密度微调（对称 OR 会使密度偏高，收紧到目标附近）
+  var guard2 = 0;
+  while (countFilled(g) > target * 1.06 && guard2++ < 500) {
+    var r3 = Math.random() * R | 0, c3 = Math.random() * C | 0;
+    if (g[r3][c3] === 1) g[r3][c3] = 0;
+  }
+  var guard3 = 0;
+  while (countFilled(g) < target && guard3++ < 500) {
+    var cand = [];
+    for (r = 0; r < R; r++) for (c = 0; c < C; c++) {
+      if (g[r][c] === 1) continue;
+      if ((r > 0 && g[r - 1][c] === 1) || (r < R - 1 && g[r + 1][c] === 1) ||
+          (c > 0 && g[r][c - 1] === 1) || (c < C - 1 && g[r][c + 1] === 1)) cand.push([r, c]);
+    }
+    if (cand.length) { var p = cand[Math.random() * cand.length | 0]; g[p[0]][p[1]] = 1; }
+    else g[Math.random() * R | 0][Math.random() * C | 0] = 1;
+  }
+  return g;
+}
+
+/* 生成唯一解谜题：每档密度最多 50 次，不唯一 / 超时未验证则降密度重试。
+   只接受求解器完整证明的唯一解（countSolutions === 1，预算内完成）。 */
+function generatePuzzle(R, C) {
+  var t0 = Date.now();
+  var densities = [0.30, 0.27, 0.33, 0.24, 0.21, 0.18], d, a;
+  for (d = 0; d < densities.length; d++) {
+    if (Date.now() - t0 > 6000) break; // 超时保护：直接跳到低密度兜底
+    for (a = 0; a < 50; a++) {
+      var g = genPattern(R, C, densities[d]);
+      var h = hintsFromGrid(g);
+      if (countSolutions(h.row, h.col, 2, 80) === 1) return { grid: g, hints: h, density: densities[d] };
+    }
+  }
+  // 兜底：极低密度几乎必然行传播即可定解
+  for (a = 0; a < 150; a++) {
+    var g2 = genPattern(R, C, 0.14);
+    var h2 = hintsFromGrid(g2);
+    if (countSolutions(h2.row, h2.col, 2, 150) === 1) return { grid: g2, hints: h2, density: 0.14 };
+  }
+  return null;
+}
+
+var PUZZLE_NAMES = ["CAT", "HOUSE", "TREE", "STAR", "HEART", "FISH", "BOAT", "CUP", "KEY",
+  "MOON", "BIRD", "DUCK", "FACE", "SHIP", "CAKE", "DOOR", "KITE", "FROG", "CLOUD", "SNAIL",
+  "CROWN", "LEAF", "SOCK", "MUG", "BELL", "BEAR", "ROSE", "WOLF", "MAP", "GHOST"];
+
+/* ==================== 展示层（浏览器专属，全部包在 init 内） ==================== */
+function init() {
+  var canvas = document.getElementById("game");
+  var ctx = canvas.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var timeEl = document.getElementById("time"), bestEl = document.getElementById("best");
+  var sizeLabel = document.getElementById("sizeLabel");
+  var btnMark = document.getElementById("btnMark"), btnUndo = document.getElementById("btnUndo");
+  var btnCheck = document.getElementById("btnCheck"), btnSound = document.getElementById("btnSound");
+  var menuOv = document.getElementById("menuOv"), winOv = document.getElementById("winOv");
+  var picNameEl = document.getElementById("picName"), winTimeEl = document.getElementById("winTime");
+  var winBestEl = document.getElementById("winBest");
+
+  var state = "MENU";        // MENU | GEN | PLAY | WIN
+  var SIZE = 0, R = 0, C = 0;
+  var sol = null, hints = null, user = null;
+  var rowSum = [], colSum = [], rowDoneS = [], colDoneS = [];
+  var picName = "", pal = null;
+  var checksLeft = 2, markMode = false, undoStack = [];
+  var playT = 0, lastShownSec = -1, winT = 0, errUntil = 0;
+  var hoverR = -1, hoverC = -1, stroke = null, activePtr = -1;
+  var sparkles = [];
+  var PALS = [
+    ["#b2492f", "#cd7a4e", "#8a9a5b", "#5f7d6d", "#d9a441"],
+    ["#3f6285", "#6c8cab", "#c96f4a", "#d9a441", "#7d8a5b"],
+    ["#7b4a6d", "#a86f93", "#5f7d6d", "#d9a441", "#b2492f"],
+    ["#4a6d4a", "#7d9a5f", "#b2492f", "#d9a441", "#3f6285"]
+  ];
+
+  // 布局
+  var W = 300, H = 300, cell = 30, ox = 60, oy = 60, clueW = 56, clueH = 56, clueFS = 12, cluePitch = 16;
+  var paper = null;
+
+  // ---------- 本地存储（全部 try/catch） ----------
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function bestKey(n) { return "nn_best_" + n; }
+  function getBest(n) { var v = parseInt(lsGet(bestKey(n)) || "", 10); return isNaN(v) ? null : v; }
+  function fmtTime(s) { var m = Math.floor(s / 60), ss = s % 60; return m + ":" + (ss < 10 ? "0" : "") + ss; }
+  function fmtBest(v) { return v === null ? "--:--" : fmtTime(v); }
+
+  // ---------- 音效（WebAudio 合成） ----------
+  var actx = null, muted = lsGet("nn_muted") === "1";
+  function ensureAudio() {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch (e) { return null; }
+  }
+  function beep(freq, dur, type, gainv, delay) {
+    try {
+      var a = ensureAudio();
+      if (!a || muted) return;
+      var t0 = a.currentTime + (delay || 0);
+      var o = a.createOscillator(), g = a.createGain();
+      o.type = type || "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(gainv || 0.1, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(a.destination);
+      o.start(t0); o.stop(t0 + dur);
+    } catch (e) {}
+  }
+  function noiseBurst(dur, gainv, hp) { // 铅笔沙沙声：白噪声 + 高通 + 快速衰减
+    try {
+      var a = ensureAudio();
+      if (!a || muted) return;
+      var len = Math.max(1, dur * a.sampleRate | 0);
+      var buf = a.createBuffer(1, len, a.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      var src = a.createBufferSource(); src.buffer = buf;
+      var f = a.createBiquadFilter(); f.type = "highpass"; f.frequency.value = hp || 1500;
+      var g = a.createGain(); g.gain.value = gainv;
+      src.connect(f); f.connect(g); g.connect(a.destination); src.start();
+    } catch (e) {}
+  }
+  var sfx = {
+    fill: function () { beep(540 + Math.random() * 80, 0.07, "triangle", 0.10); },
+    mark: function () { noiseBurst(0.05, 0.06, 1800); },
+    erase: function () { beep(300, 0.06, "sine", 0.06); },
+    line: function () { beep(830, 0.10, "sine", 0.05); beep(1100, 0.12, "sine", 0.04, 0.07); },
+    undo: function () { beep(370, 0.06, "sine", 0.05); },
+    deny: function () { beep(160, 0.12, "square", 0.06); },
+    error: function () { beep(200, 0.15, "square", 0.07); beep(150, 0.20, "square", 0.06, 0.13); },
+    click: function () { beep(720, 0.045, "sine", 0.05); },
+    win: function () {
+      var seq = [523, 659, 784, 1047];
+      for (var i = 0; i < seq.length; i++) beep(seq[i], 0.22, "triangle", 0.09, i * 0.13);
+      beep(1568, 0.4, "sine", 0.05, 0.55);
+    }
+  };
+
+  // ---------- 平台埋点（各 SDK 已做域名守卫） ----------
+  function cgStart() {
+    try {
+      if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK)
+        window.CrazyGames.SDK.game.gameplayStart();
+    } catch (e) {}
+  }
+  function cgStop() {
+    try {
+      if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK)
+        window.CrazyGames.SDK.game.gameplayStop();
+    } catch (e) {}
+  }
+
+  // ---------- 画布自适应 + 和纸纹理 ----------
+  function layout() {
+    var availW = Math.min(window.innerWidth - 14, 620);
+    var hudH = document.getElementById("hud").offsetHeight;
+    var footH = document.getElementById("footer").offsetHeight;
+    var availH = window.innerHeight - hudH - footH - 14;
+    if (hints && R > 0) {
+      var maxRowCnt = 1, maxColCnt = 1, r, c;
+      for (r = 0; r < R; r++) maxRowCnt = Math.max(maxRowCnt, Math.max(1, hints.row[r].length));
+      for (c = 0; c < C; c++) maxColCnt = Math.max(maxColCnt, Math.max(1, hints.col[c].length));
+      var est = Math.min(availW / C, availH / R);
+      var fs = Math.max(9, Math.min(15, est * 0.40));
+      var pitch = fs + 4;
+      clueW = Math.min(Math.round(maxRowCnt * pitch + 16), availW * 0.45);
+      clueH = Math.min(Math.round(maxColCnt * pitch + 16), availH * 0.45);
+      cell = Math.floor(Math.min((availW - clueW) / C, (availH - clueH) / R));
+      cell = Math.max(14, Math.min(56, cell));
+      W = Math.round(clueW + C * cell + 10);
+      H = Math.round(clueH + R * cell + 10);
+      ox = Math.round(clueW + 5); oy = Math.round(clueH + 5);
+      clueFS = Math.max(9, Math.min(15, cell * 0.42));
+      cluePitch = clueFS + 4;
+    } else {
+      W = Math.round(Math.min(availW, 460));
+      H = Math.round(Math.min(availH, 520));
+      ox = 60; oy = 60;
+    }
+    resizeCanvas();
+  }
+  function resizeCanvas() {
+    canvas.width = Math.max(1, Math.round(W * dpr));
+    canvas.height = Math.max(1, Math.round(H * dpr));
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    makePaper();
+  }
+  function makePaper() { // 和纸：米白底 + 随机斑点与纤维
+    paper = document.createElement("canvas");
+    paper.width = Math.max(1, W); paper.height = Math.max(1, H);
+    var p = paper.getContext("2d");
+    p.fillStyle = "#f8f2e4"; p.fillRect(0, 0, W, H);
+    var n = Math.round(W * H / 190), i;
+    for (i = 0; i < n; i++) {
+      p.fillStyle = "rgba(125,105,66," + (0.03 + Math.random() * 0.07).toFixed(3) + ")";
+      var s = 0.6 + Math.random() * 1.4;
+      p.fillRect(Math.random() * W, Math.random() * H, s, s);
+    }
+    p.strokeStyle = "rgba(140,118,80,0.05)"; p.lineWidth = 0.7;
+    for (i = 0; i < Math.round(W * H / 9000); i++) {
+      var x = Math.random() * W, y = Math.random() * H, a = Math.random() * Math.PI, l = 4 + Math.random() * 10;
+      p.beginPath(); p.moveTo(x, y); p.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); p.stroke();
+    }
+  }
+
+  // ---------- 游戏流程 ----------
+  function sumArr(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
+  function arrEq(a, b) {
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  function lineDone(idx, isRow) {
+    var line = [], i;
+    if (isRow) { for (i = 0; i < C; i++) line.push(user[idx][i] === 1 ? 1 : 0); return arrEq(computeRuns(line), hints.row[idx]); }
+    for (i = 0; i < R; i++) line.push(user[i][idx] === 1 ? 1 : 0);
+    return arrEq(computeRuns(line), hints.col[idx]);
+  }
+  function isSolved() {
+    for (var r = 0; r < R; r++) for (var c = 0; c < C; c++)
+      if ((user[r][c] === 1) !== (sol[r][c] === 1)) return false;
+    return true;
+  }
+  function recomputeDone() {
+    for (var r = 0; r < R; r++) rowDoneS[r] = lineDone(r, true);
+    for (var c = 0; c < C; c++) colDoneS[c] = lineDone(c, false);
+  }
+
+  var pendingSize = 5;
+  function requestPuzzle(n) {
+    pendingSize = n;
+    state = "GEN";
+    menuOv.style.display = "none";
+    winOv.style.display = "none";
+    timeEl.textContent = "0:00";
+    setTimeout(spawnPuzzle, 30);
+  }
+  function spawnPuzzle() {
+    var n = pendingSize;
+    SIZE = n; R = C = n;
+    var puz = generatePuzzle(n, n);
+    if (!puz) puz = generatePuzzle(n, n); // 理论上不会发生，防御一下
+    sol = puz.grid; hints = puz.hints;
+    user = [];
+    for (var r = 0; r < R; r++) { var row = new Array(C); for (var c = 0; c < C; c++) row[c] = 0; user.push(row); }
+    rowSum = []; colSum = [];
+    for (r = 0; r < R; r++) rowSum.push(hints.row[r].length ? sumArr(hints.row[r]) : 0);
+    for (c = 0; c < C; c++) colSum.push(hints.col[c].length ? sumArr(hints.col[c]) : 0);
+    picName = PUZZLE_NAMES[Math.random() * PUZZLE_NAMES.length | 0];
+    pal = PALS[Math.random() * PALS.length | 0];
+    checksLeft = 2; undoStack = []; playT = 0; lastShownSec = -1; errUntil = 0; sparkles = [];
+    stroke = null; hoverR = hoverC = -1;
+    recomputeDone();
+    state = "PLAY";
+    layout();
+    updateHUD();
+    cgStart();
+  }
+  function updateHUD() {
+    sizeLabel.textContent = SIZE + " \u00d7 " + SIZE + " \u00b7 " + (SIZE === 5 ? "EASY" : SIZE === 10 ? "MEDIUM" : "HARD");
+    bestEl.textContent = fmtBest(getBest(SIZE));
+    timeEl.textContent = "0:00";
+    btnCheck.textContent = "Check \u00d7" + checksLeft;
+    btnCheck.classList.toggle("dis", checksLeft <= 0);
+  }
+  function showMenu() {
+    state = "MENU";
+    winOv.style.display = "none";
+    menuOv.style.display = "flex";
+    document.getElementById("best5").textContent = fmtBest(getBest(5));
+    document.getElementById("best10").textContent = fmtBest(getBest(10));
+    document.getElementById("best15").textContent = fmtBest(getBest(15));
+    bestEl.textContent = SIZE ? fmtBest(getBest(SIZE)) : "--:--";
+  }
+  function onWin() {
+    state = "WIN";
+    winT = performance.now();
+    stroke = null; hoverR = hoverC = -1;
+    var secs = Math.max(1, Math.floor(playT));
+    var pb = getBest(SIZE);
+    var nb = (pb === null || secs < pb);
+    if (nb) lsSet(bestKey(SIZE), String(secs));
+    bestEl.textContent = fmtBest(getBest(SIZE));
+    for (var i = 0; i < 26; i++) {
+      sparkles.push({ x: ox + Math.random() * C * cell, y: oy + Math.random() * R * cell,
+                      d: Math.random() * 1.1, life: 0.7 + Math.random() * 0.5 });
+    }
+    sfx.win();
+    cgStop();
+    try {
+      if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK)
+        window.CrazyGames.SDK.game.happytime();
+    } catch (e) {}
+    winTimeEl.textContent = "Time " + fmtTime(secs);
+    winBestEl.textContent = nb ? "New best time!" : "Best " + fmtBest(getBest(SIZE));
+    winBestEl.classList.toggle("nb", nb);
+    picNameEl.textContent = picName;
+    setTimeout(function () { if (state === "WIN") winOv.style.display = "flex"; }, 1600);
+  }
+
+  // ---------- 操作 ----------
+  function pushUndo(batch) { undoStack.push(batch); if (undoStack.length > 400) undoStack.shift(); }
+  function doUndo() {
+    if (state !== "PLAY" || !undoStack.length) { sfx.deny(); return; }
+    var b = undoStack.pop(), i;
+    for (i = b.length - 1; i >= 0; i--) user[b[i].r][b[i].c] = b[i].prev;
+    recomputeDone();
+    sfx.undo();
+  }
+  function doCheck() {
+    if (state !== "PLAY") return;
+    if (checksLeft <= 0) { sfx.deny(); return; }
+    checksLeft--;
+    btnCheck.textContent = "Check \u00d7" + checksLeft;
+    btnCheck.classList.toggle("dis", checksLeft <= 0);
+    errUntil = performance.now() + 2600;
+    var wrong = 0, r, c;
+    for (r = 0; r < R; r++) for (c = 0; c < C; c++) if ((user[r][c] === 1) !== (sol[r][c] === 1)) wrong++;
+    if (wrong > 0) sfx.error(); else sfx.line();
+  }
+  function toggleMark() {
+    markMode = !markMode;
+    btnMark.textContent = "Mark: " + (markMode ? "On" : "Off");
+    btnMark.classList.toggle("on", markMode);
+    sfx.click();
+  }
+  function toggleSound() {
+    muted = !muted;
+    lsSet("nn_muted", muted ? "1" : "0");
+    btnSound.textContent = muted ? "Sound Off" : "Sound On";
+    if (!muted) sfx.click();
+  }
+
+  // ---------- 输入（指针 + 触控 + 鼠标回退，支持拖动连涂） ----------
+  function evtCell(e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = (e.clientX - rect.left) * (W / rect.width);
+    var y = (e.clientY - rect.top) * (H / rect.height);
+    var c = Math.floor((x - ox) / cell), r = Math.floor((y - oy) / cell);
+    if (r < 0 || c < 0 || r >= R || c >= C) return null;
+    return { r: r, c: c };
+  }
+  function strokeAction(cellState, wantMark) {
+    if (wantMark) return cellState === 2 ? "erase" : "mark";
+    return cellState === 1 ? "erase" : "fill";
+  }
+  function checkLine(idx, isRow) {
+    var doneNow = lineDone(idx, isRow);
+    var arr = isRow ? rowDoneS : colDoneS;
+    if (doneNow && !arr[idx]) { arr[idx] = true; sfx.line(); }
+    else if (!doneNow && arr[idx]) arr[idx] = false;
+  }
+  function applyCell(r, c, action, batch) {
+    var prev = user[r][c];
+    var next = action === "fill" ? 1 : action === "mark" ? 2 : 0;
+    if (prev === next) return;
+    user[r][c] = next;
+    batch.push({ r: r, c: c, prev: prev, next: next });
+    var v = user[r][c];
+    if (v === 1) sfx.fill(); else if (v === 2) sfx.mark(); else sfx.erase();
+    checkLine(r, true);
+    checkLine(c, false);
+    if (isSolved()) onWin();
+  }
+  function onDown(e) {
+    ensureAudio();
+    if (state !== "PLAY") return;
+    var p = evtCell(e);
+    if (!p) return;
+    var wantMark = markMode || e.button === 2;
+    var act = strokeAction(user[p.r][p.c], wantMark);
+    stroke = { action: act, batch: [] };
+    activePtr = e.pointerId !== undefined ? e.pointerId : -2;
+    if (canvas.setPointerCapture && e.pointerId !== undefined) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    applyCell(p.r, p.c, act, stroke.batch);
+  }
+  function onMove(e) {
+    var p = evtCell(e);
+    if (p) { hoverR = p.r; hoverC = p.c; } else { hoverR = hoverC = -1; }
+    if (!stroke || state !== "PLAY") return;
+    if (activePtr !== -2 && e.pointerId !== undefined && e.pointerId !== activePtr) return;
+    if (p) applyCell(p.r, p.c, stroke.action, stroke.batch);
+  }
+  function onUp() {
+    if (stroke) {
+      if (stroke.batch.length) pushUndo(stroke.batch);
+      stroke = null;
+    }
+    activePtr = -1;
+  }
+  if (window.PointerEvent) {
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    // 阻止触摸滚动 / 双击缩放
+    canvas.addEventListener("touchstart", function (e) { e.preventDefault(); }, { passive: false });
+    canvas.addEventListener("touchmove", function (e) { e.preventDefault(); }, { passive: false });
+  } else {
+    // 旧浏览器回退：鼠标 + 触控
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    canvas.addEventListener("touchstart", function (e) { e.preventDefault(); onDown(e.touches[0]); }, { passive: false });
+    canvas.addEventListener("touchmove", function (e) { e.preventDefault(); onMove(e.touches[0]); }, { passive: false });
+    canvas.addEventListener("touchend", function (e) { e.preventDefault(); onUp(); }, { passive: false });
+  }
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  btnMark.addEventListener("click", toggleMark);
+  btnUndo.addEventListener("click", doUndo);
+  btnCheck.addEventListener("click", doCheck);
+  btnSound.addEventListener("click", toggleSound);
+  document.getElementById("btnMenu").addEventListener("click", function () {
+    if (state === "PLAY") cgStop();
+    showMenu();
+  });
+  document.getElementById("btnNext").addEventListener("click", function () { requestPuzzle(SIZE); });
+  document.getElementById("btnChange").addEventListener("click", showMenu);
+  var sizeBtns = document.querySelectorAll(".sizeBtn");
+  for (var sb = 0; sb < sizeBtns.length; sb++) {
+    sizeBtns[sb].addEventListener("click", function (e) {
+      var n = parseInt(e.currentTarget.getAttribute("data-n"), 10);
+      sfx.click();
+      requestPuzzle(n);
+    });
+  }
+  document.addEventListener("keydown", function (e) {
+    var k = e.key || "";
+    if (k === "u" || k === "U") doUndo();
+    else if (k === "m" || k === "M") toggleMark();
+    else if (k === "h" || k === "H") doCheck();
+    else if (k === "Escape") { if (state === "PLAY") { cgStop(); showMenu(); } }
+    else if ((k === "Enter" || k === " ") && state === "WIN") { e.preventDefault(); requestPuzzle(SIZE); }
+  });
+  window.addEventListener("resize", function () { layout(); });
+  window.addEventListener("orientationchange", function () { setTimeout(layout, 200); });
+
+  // ---------- 绘制 ----------
+  function rr(c2, x, y, w, h, rad) {
+    c2.beginPath();
+    c2.moveTo(x + rad, y);
+    c2.arcTo(x + w, y, x + w, y + h, rad);
+    c2.arcTo(x + w, y + h, x, y + h, rad);
+    c2.arcTo(x, y + h, x, y, rad);
+    c2.arcTo(x, y, x + w, y, rad);
+    c2.closePath();
+  }
+  function easeOutBack(p) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
+  function drawX(x, y, s, seedv) { // 手写红铅笔 ×：每格固定抖动
+    var seed = (seedv % 233280 + 233280) % 233280;
+    function srnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    var m = 0.26;
+    ctx.strokeStyle = "#b23e2e";
+    ctx.lineWidth = Math.max(1.5, s * 0.10);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x + s * (m + srnd() * 0.05), y + s * (m + srnd() * 0.05));
+    ctx.quadraticCurveTo(x + s * 0.5 + (srnd() - 0.5) * s * 0.10, y + s * 0.5 + (srnd() - 0.5) * s * 0.10,
+                         x + s * (1 - m - 0.02 + srnd() * 0.05), y + s * (1 - m - 0.02 + srnd() * 0.05));
+    ctx.moveTo(x + s * (1 - m - srnd() * 0.05), y + s * (m + srnd() * 0.05));
+    ctx.quadraticCurveTo(x + s * 0.5 + (srnd() - 0.5) * s * 0.10, y + s * 0.5 + (srnd() - 0.5) * s * 0.10,
+                         x + s * (m + srnd() * 0.05), y + s * (1 - m - 0.02 + srnd() * 0.05));
+    ctx.stroke();
+  }
+
+  function draw(now) {
+    if (!paper) return;
+    ctx.drawImage(paper, 0, 0, W, H);
+    if (state === "GEN" || state === "MENU") {
+      if (state === "GEN") {
+        ctx.fillStyle = "#93866b";
+        ctx.font = "700 15px Georgia, 'Times New Roman', serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("Generating puzzle\u2026", W / 2, H / 2);
+      }
+      return;
+    }
+    if (!hints) return;
+    var r, c, i;
+    var gridW = C * cell, gridH = R * cell;
+
+    // 提示区底色
+    ctx.fillStyle = "rgba(186,166,124,0.13)";
+    ctx.fillRect(3, 3, ox - 6, H - 6);
+    ctx.fillRect(3, 3, W - 6, oy - 6);
+    // 棋盘底
+    ctx.fillStyle = "#fcf7ea";
+    ctx.fillRect(ox, oy, gridW, gridH);
+
+    // 超提示数量警示（防呆）
+    var rowOver = [], colOver = [];
+    for (r = 0; r < R; r++) {
+      var f = 0;
+      for (i = 0; i < C; i++) if (user[r][i] === 1) f++;
+      rowOver[r] = f > rowSum[r];
+    }
+    for (c = 0; c < C; c++) {
+      var f2 = 0;
+      for (i = 0; i < R; i++) if (user[i][c] === 1) f2++;
+      colOver[c] = f2 > colSum[c];
+    }
+    ctx.fillStyle = "rgba(178,73,47,0.05)";
+    for (r = 0; r < R; r++) if (rowOver[r]) ctx.fillRect(ox, oy + r * cell, gridW, cell);
+    for (c = 0; c < C; c++) if (colOver[c]) ctx.fillRect(ox + c * cell, oy, cell, gridH);
+
+    // 悬停高亮
+    if (state === "PLAY" && hoverR >= 0) {
+      ctx.fillStyle = "rgba(74,63,46,0.08)";
+      ctx.fillRect(ox + hoverC * cell, oy + hoverR * cell, cell, cell);
+    }
+
+    // 单元格
+    var t = state === "WIN" ? (now - winT) / 1000 : 0;
+    for (r = 0; r < R; r++) for (c = 0; c < C; c++) {
+      var x = ox + c * cell, y = oy + r * cell;
+      if (state === "WIN" && sol[r][c] === 1) { // 完成上色动画
+        var p = (t - (r + c) * 0.045) / 0.35;
+        if (p > 0) {
+          if (p > 1) p = 1;
+          var e = easeOutBack(p);
+          var s2 = cell * 0.96 * e;
+          ctx.globalAlpha = Math.min(1, p * 3);
+          ctx.fillStyle = pal[(r + c) % pal.length];
+          rr(ctx, x + (cell - s2) / 2, y + (cell - s2) / 2, s2, s2, cell * 0.18);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      } else if (user[r][c] === 1) { // 墨色涂格
+        ctx.fillStyle = "#332c22";
+        rr(ctx, x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.2);
+        ctx.fill();
+      } else if (user[r][c] === 2) { // 红 ×
+        if (state === "WIN") ctx.globalAlpha = Math.max(0, 1 - t * 1.6);
+        drawX(x, y, cell, r * 73 + c * 151 + 7);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // 查错高亮（每局 2 次）
+    if (state === "PLAY" && now < errUntil) {
+      for (r = 0; r < R; r++) for (c = 0; c < C; c++) {
+        var x2 = ox + c * cell, y2 = oy + r * cell;
+        if (user[r][c] === 1 && sol[r][c] !== 1) {
+          ctx.strokeStyle = "rgba(178,49,39,0.85)"; ctx.lineWidth = 2;
+          rr(ctx, x2 + 2, y2 + 2, cell - 4, cell - 4, 4); ctx.stroke();
+        } else if (user[r][c] !== 1 && sol[r][c] === 1) {
+          ctx.fillStyle = "rgba(63,98,133,0.55)";
+          ctx.beginPath();
+          ctx.arc(x2 + cell / 2, y2 + cell / 2, Math.max(2, cell * 0.09), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // 网格线（细线 + 每 5 格粗线）
+    ctx.strokeStyle = "rgba(112,97,70,0.30)"; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (i = 1; i < C; i++) { if (i % 5 === 0) continue; ctx.moveTo(ox + i * cell, oy); ctx.lineTo(ox + i * cell, oy + gridH); }
+    for (i = 1; i < R; i++) { if (i % 5 === 0) continue; ctx.moveTo(ox, oy + i * cell); ctx.lineTo(ox + gridW, oy + i * cell); }
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(112,97,70,0.78)"; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (i = 5; i < C; i += 5) { ctx.moveTo(ox + i * cell, oy); ctx.lineTo(ox + i * cell, oy + gridH); }
+    for (i = 5; i < R; i += 5) { ctx.moveTo(ox, oy + i * cell); ctx.lineTo(ox + gridW, oy + i * cell); }
+    ctx.stroke();
+    ctx.strokeStyle = "#6b5c44"; ctx.lineWidth = 2;
+    ctx.strokeRect(ox, oy, gridW, gridH);
+
+    // 行提示（右对齐，靠网格）
+    ctx.font = "700 " + clueFS.toFixed(1) + "px Georgia, 'Times New Roman', serif";
+    ctx.textBaseline = "middle";
+    for (r = 0; r < R; r++) {
+      var vals = hints.row[r].length ? hints.row[r] : [0];
+      var colr = rowDoneS[r] ? "#b9ad92" : rowOver[r] ? "#b2492f" : "#4a4034";
+      if (rowOver[r]) { ctx.fillStyle = "rgba(178,73,47,0.10)"; ctx.fillRect(5, oy + r * cell + 1, ox - 9, cell - 2); }
+      ctx.fillStyle = colr;
+      ctx.textAlign = "right";
+      for (i = vals.length - 1; i >= 0; i--)
+        ctx.fillText(String(vals[i]), ox - 9 - (vals.length - 1 - i) * cluePitch, oy + r * cell + cell / 2 + 0.5);
+    }
+    // 列提示（底对齐，靠网格）
+    for (c = 0; c < C; c++) {
+      var vals2 = hints.col[c].length ? hints.col[c] : [0];
+      var colr2 = colDoneS[c] ? "#b9ad92" : colOver[c] ? "#b2492f" : "#4a4034";
+      if (colOver[c]) { ctx.fillStyle = "rgba(178,73,47,0.10)"; ctx.fillRect(ox + c * cell + 1, 5, cell - 2, oy - 9); }
+      ctx.fillStyle = colr2;
+      ctx.textAlign = "center";
+      for (i = vals2.length - 1; i >= 0; i--)
+        ctx.fillText(String(vals2[i]), ox + c * cell + cell / 2, oy - 9 - (vals2.length - 1 - i) * cluePitch);
+    }
+
+    // 胜利星尘
+    if (state === "WIN") {
+      for (i = 0; i < sparkles.length; i++) {
+        var sp = sparkles[i], tt = t - sp.d;
+        if (tt > 0 && tt < sp.life) {
+          ctx.globalAlpha = 1 - tt / sp.life;
+          ctx.fillStyle = i % 3 === 0 ? "#d9a441" : "#b2492f";
+          ctx.beginPath();
+          ctx.arc(sp.x, sp.y - tt * 26, 1.2 + (i % 4) * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  // ---------- 主循环 ----------
+  var lastT = 0;
+  function frame(t) {
+    var dt = Math.min((t - lastT) / 1000, 0.06);
+    lastT = t;
+    if (state === "PLAY") {
+      playT += dt;
+      var s = Math.floor(playT);
+      if (s !== lastShownSec) { lastShownSec = s; timeEl.textContent = fmtTime(s); }
+    }
+    draw(t);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- 启动 ----------
+  btnSound.textContent = muted ? "Sound Off" : "Sound On";
+  layout();
+  showMenu();
+  requestAnimationFrame(frame);
+  // 调试/测试钩子（不影响游戏逻辑）
+  window.__nn = {
+    get state() { return state; },
+    get size() { return SIZE; },
+    get checksLeft() { return checksLeft; },
+    get undo() { return undoStack.length; },
+    get markMode() { return markMode; },
+    get user() { return user; },
+    get sol() { return sol; }, // 调试用：隐藏图案
+    get hints() { return hints; },
+    get layout() { return { W: W, H: H, ox: ox, oy: oy, cell: cell }; }
+  };
+}
+
+if (typeof document !== "undefined" && typeof document.getElementById === "function" && document.getElementById("game")) {
+  init();
+}
+
+/* Node 单测出口（浏览器中 module 未定义，自动跳过） */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    computeRuns: computeRuns,
+    hintsFromGrid: hintsFromGrid,
+    lineDetermine: lineDetermine,
+    propagate: propagate,
+    countSolutions: countSolutions,
+    genPattern: genPattern,
+    rowValidPlacements: rowValidPlacements,
+    generatePuzzle: generatePuzzle,
+    countFilled: countFilled,
+    PUZZLE_NAMES: PUZZLE_NAMES
+  };
+}
+</script>
+</body>
+</html>
